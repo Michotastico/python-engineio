@@ -129,14 +129,6 @@ class AsyncSocket(socket.Socket):
 
     async def _websocket_handler(self, ws):
         """Engine.IO handler for websocket transport."""
-        async def check_loop():
-            once = False
-            while not once or not check_loop.quit:
-                once = True
-                if self.queue.empty():
-                    await self.send(packet.Packet(packet.NOOP))
-                await self.server.sleep(0.1)
-        check_loop.quit = False
         if self.connected:
             # the socket was already connected, so this is an upgrade
             self.upgrading = True  # hold packet sends during the upgrade
@@ -154,12 +146,10 @@ class AsyncSocket(socket.Socket):
             await ws.send(packet.Packet(
                 packet.PONG,
                 data=six.text_type('probe')).encode(always_bytes=False))
-            # await self.queue.put(packet.Packet(packet.NOOP))  # end poll
-            asyncio.ensure_future(check_loop())
+            await self.queue.put(packet.Packet(packet.NOOP))  # end poll
 
             try:
                 pkt = await ws.wait()
-                check_loop.quit = True
             except IOError:  # pragma: no cover
                 return
             decoded_pkt = packet.Packet(encoded_packet=pkt)

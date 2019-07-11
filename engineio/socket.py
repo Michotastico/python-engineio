@@ -152,15 +152,6 @@ class Socket(object):
             if hasattr(ws, attr) and hasattr(getattr(ws, attr), 'settimeout'):
                 getattr(ws, attr).settimeout(self.server.ping_timeout)
 
-        def check_loop():
-            once = False
-            while not once or not check_loop.quit:
-                once = True
-                if self.queue.empty():
-                    self.send(packet.Packet(packet.NOOP))
-                self.server.sleep(0.1)
-            check_loop.quit = False
-
         if self.connected:
             # the socket was already connected, so this is an upgrade
             self.upgrading = True  # hold packet sends during the upgrade
@@ -175,11 +166,9 @@ class Socket(object):
             ws.send(packet.Packet(
                 packet.PONG,
                 data=six.text_type('probe')).encode(always_bytes=False))
-            #self.queue.put(packet.Packet(packet.NOOP))  # end poll
-            self.server.start_background_task(check_loop)
+            self.queue.put(packet.Packet(packet.NOOP))  # end poll
 
             pkt = ws.wait()
-            check_loop.quit = True
             decoded_pkt = packet.Packet(encoded_packet=pkt)
             if decoded_pkt.packet_type != packet.UPGRADE:
                 self.upgraded = False
